@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Parser & Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #7209b7;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #f72585;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7ff;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #666;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background-color: var(--secondary);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .raw-data {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .alert-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .flex-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .flex-container > div {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        @media (max-width: 768px) {
+            .flex-container {
+                flex-direction: column;
+            }
+        }
+        
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loader-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Data Parser & Visualizer</h1>
+            <p class="description">Masukkan URL dan selector untuk mengambil data dari website, lalu tampilkan dalam bentuk grafik yang interaktif.</p>
+        </header>
+        
+        <div class="alert alert-error" id="errorAlert"></div>
+        <div class="alert alert-success" id="successAlert"></div>
+        
+        <div class="card">
+            <h2>Konfigurasi Parser</h2>
+            <div class="form-group">
+                <label for="url">URL Target</label>
+                <input type="text" id="url" placeholder="Masukkan URL website (contoh: http://192.168.1.100/data.html)" />
+            </div>
+            
+            <div class="flex-container">
+                <div class="form-group">
+                    <label for="selectorType">Jenis Selector</label>
+                    <select id="selectorType">
+                        <option value="class">Class</option>
+                        <option value="id">ID</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="selectorValue">Nilai Selector</label>
+                    <input type="text" id="selectorValue" placeholder="Masukkan nama class atau id" />
+                </div>
+                
+                <div class="form-group">
+                    <label for="dataIndex">Index Data (opsional)</label>
+                    <input type="number" id="dataIndex" placeholder="Index data, kosongkan untuk semua" min="0" />
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="chartType">Jenis Grafik</label>
+                <select id="chartType">
+                    <option value="line">Garis</option>
+                    <option value="bar">Batang</option>
+                    <option value="pie">Pie</option>
+                    <option value="doughnut">Donat</option>
+                    <option value="radar">Radar</option>
+                </select>
+            </div>
+            
+            <button id="fetchData">Ambil & Tampilkan Data</button>
+            
+            <div class="loader" id="loader">
+                <div class="loader-spinner"></div>
+                <p>Sedang mengambil data...</p>
+            </div>
+        </div>
+        
+        <div class="card results" id="resultsSection" style="display: none;">
+            <h2>Hasil</h2>
+            <div class="raw-data" id="rawData"></div>
+            
+            <div class="chart-container">
+                <canvas id="dataChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fetchButton = document.getElementById('fetchData');
+            const loader = document.getElementById('loader');
+            const resultsSection = document.getElementById('resultsSection');
+            const rawDataElement = document.getElementById('rawData');
+            const errorAlert = document.getElementById('errorAlert');
+            const successAlert = document.getElementById('successAlert');
+            let dataChart = null;
+            
+            fetchButton.addEventListener('click', function() {
+                const url = document.getElementById('url').value;
+                const selectorType = document.getElementById('selectorType').value;
+                const selectorValue = document.getElementById('selectorValue').value;
+                const dataIndex = document.getElementById('dataIndex').value;
+                const chartType = document.getElementById('chartType').value;
+                
+                // Validasi input
+                if (!url || !selectorValue) {
+                    showError('URL dan nilai selector harus diisi!');
+                    return;
+                }
+                
+                // Tampilkan loader
+                loader.style.display = 'block';
+                resultsSection.style.display = 'none';
+                hideAlerts();
+                
+                // Gunakan proxy untuk menghindari masalah CORS
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const targetUrl = proxyUrl + url;
+                
+                fetch(targetUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    // Parse HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    let elements;
+                    if (selectorType === 'class') {
+                        elements = doc.getElementsByClassName(selectorValue);
+                    } else {
+                        elements = [doc.getElementById(selectorValue)];
+                    }
+                    
+                    if (!elements || elements.length === 0) {
+                        throw new Error('Tidak ditemukan elemen dengan selector tersebut');
+                    }
+                    
+                    let data = [];
+                    // Jika index data ditentukan, ambil data dari index tersebut
+                    if (dataIndex !== '') {
+                        const index = parseInt(dataIndex);
+                        if (index >= 0 && index < elements.length) {
+                            data.push(elements[index].textContent.trim());
+                        } else {
+                            throw new Error('Index data tidak valid');
+                        }
+                    } else {
+                        // Ambil semua data
+                        for (let i = 0; i < elements.length; i++) {
+                            data.push(elements[i].textContent.trim());
+                        }
+                    }
+                    
+                    // Tampilkan data mentah
+                    displayRawData(data);
+                    
+                    // Proses data untuk chart (asumsi data numerik)
+                    const numericData = processDataForChart(data);
+                    
+                    // Tampilkan chart
+                    renderChart(numericData, chartType);
+                    
+                    // Tampilkan hasil
+                    resultsSection.style.display = 'block';
+                    loader.style.display = 'none';
+                    showSuccess('Data berhasil diambil dan ditampilkan!');
+                })
+                .catch(error => {
+                    loader.style.display = 'none';
+                    showError('Error: ' + error.message);
+                    console.error('Error:', error);
+                });
+            });
+            
+            function processDataForChart(data) {
+                // Coba konversi ke angka, jika tidak bisa gunakan sebagai label
+                const numericData = [];
+                const labels = [];
+                
+                data.forEach((item, index) => {
+                    const num = parseFloat(item);
+                    if (!isNaN(num)) {
+                        numericData.push(num);
+                        labels.push(`Data ${index + 1}`);
+                    } else {
+                        // Jika bukan angka, gunakan sebagai label dan buat nilai acak untuk demo
+                        labels.push(item);
+                        numericData.push(Math.random() * 100);
+                    }
+                });
+                
+                // Jika semua data numerik, buat label default
+                if (labels.length === 0) {
+                    for (let i = 0; i < numericData.length; i++) {
+                        labels.push(`Data ${i + 1}`);
+                    }
+                }
+                
+                return {
+                    values: numericData,
+                    labels: labels
+                };
+            }
+            
+            function renderChart(data, chartType) {
+                const ctx = document.getElementById('dataChart').getContext('2d');
+                
+                // Hancurkan chart sebelumnya jika ada
+                if (dataChart) {
+                    dataChart.destroy();
+                }
+                
+                // Konfigurasi chart berdasarkan jenis
+                const config = {
+                    type: chartType,
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Data yang Diambil',
+                            data: data.values,
+                            backgroundColor: [
+                                'rgba(67, 97, 238, 0.6)',
+                                'rgba(58, 12, 163, 0.6)',
+                                'rgba(114, 9, 183, 0.6)',
+                                'rgba(76, 201, 240, 0.6)',
+                                'rgba(247, 37, 133, 0.6)',
+                                'rgba(255, 159, 64, 0.6)',
+                                'rgba(153, 102, 255, 0.6)',
+                                'rgba(75, 192, 192, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(67, 97, 238, 1)',
+                                'rgba(58, 12, 163, 1)',
+                                'rgba(114, 9, 183, 1)',
+                                'rgba(76, 201, 240, 1)',
+                                'rgba(247, 37, 133, 1)',
+                                'rgba(255, 159, 64, 1)',
+                                'rgba(153, 102, 255, 1)',
+                                'rgba(75, 192, 192, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Visualisasi Data yang Diambil'
+                            },
+                            legend: {
+                                position: 'top',
+                            }
+                        }
+                    }
+                };
+                
+                dataChart = new Chart(ctx, config);
+            }
+            
+            function displayRawData(data) {
+                if (data.length === 0) {
+                    rawDataElement.innerHTML = '<p>Tidak ada data yang ditemukan</p>';
+                    return;
+                }
+                
+                let html = '<h3>Data Mentah:</h3><ul>';
+                data.forEach(item => {
+                    html += `<li>${item}</li>`;
+                });
+                html += '</ul>';
+                
+                rawDataElement.innerHTML = html;
+            }
+            
+            function showError(message) {
+                errorAlert.textContent = message;
+                errorAlert.style.display = 'block';
+            }
+            
+            function showSuccess(message) {
+                successAlert.textContent = message;
+                successAlert.style.display = 'block';
+                
+                // Sembunyikan pesan sukses setelah 3 detik
+                setTimeout(hideAlerts, 3000);
+            }
+            
+            function hideAlerts() {
+                errorAlert.style.display = 'none';
+                successAlert.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
